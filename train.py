@@ -37,13 +37,37 @@ parser.add_argument('--walk_length', type=int, default=80,
                     help='Length of walk per source. Default is 80.')
 parser.add_argument('--num_walks', type=int, default=10,
                     help='Number of walks per source. Default is 10.')
-parser.add_argument('--dataset', type=str, default='new_ACM-DBLP', help='dataset name.')
+parser.add_argument('--dataset', type=str, default='ACM-DBLP', help='dataset name.')
 parser.add_argument('--use_attr', action='store_true')
 parser.add_argument('--gpu', type=int, default=0, help='cuda number.')
 parser.add_argument('--dist', type=str, default='L1', help='distance for scoring.')
 
 args = parser.parse_args()
+args.seed = 123
+args.dim = 128
+args.num_layer = 1
+args.ratio = 0.2
+args.coeff1 = 1.0
+args.coeff2 = 1.0
+args.lr = 0.01
+args.epochs = 100
+args.batch_size = 300
+args.walks_num = 100
+args.N_steps = 10
+args.negs = 20
+args.p = 1
+args.q = 1
+args.walk_length = 80
+args.num_walks = 10
+args.use_attr = True
+args.gpu = 0
+args.dist = 'L1'
+
 edge_index1, edge_index2, x1, x2, anchor_links, test_pairs = load_data('dataset/' + args.dataset, args.ratio, args.use_attr)
+print(edge_index1)
+print(len(x1))
+print(anchor_links)
+print(test_pairs)
 
 anchor_nodes1, anchor_nodes2 = anchor_links[:, 0], anchor_links[:, 1]
 anchor_links2 = anchor_nodes2

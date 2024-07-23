@@ -13,8 +13,8 @@ def rwr_scores(G1, G2, anchors):
     score1, score2 = [], []
 
     for i, (node1, node2) in enumerate(anchors):
-        s1 = nx.pagerank_scipy(G1, personalization={node1: 1})
-        s2 = nx.pagerank_scipy(G2, personalization={node2: 1})
+        s1 = nx.pagerank(G1, personalization={node1: 1})
+        s2 = nx.pagerank(G2, personalization={node2: 1})
         s1_list = [0] * n1
         s2_list = [0] * n2
         for k, v in s1.items():
