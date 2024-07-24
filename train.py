@@ -17,8 +17,6 @@ import time, os
 from dataset.data import Train_Data
 from torch.utils.data import DataLoader
 
-import os
-os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--seed', type=int, default=123, help='seed')
@@ -75,10 +73,12 @@ args.dataset = "dblp_2"
 # G1.add_edges_from(edge_index1)
 # G2.add_edges_from(edge_index2)
 
+
 G1, G2 = pickle.load(open(r'C:/Users/Ken/Desktop/data/dblp_2/networks', 'rb'))
 
 mapping = {node: node - 10000 for node in G2.nodes()}
 G2 = nx.relabel_nodes(G2, mapping)
+print(G2.nodes())
 
 edge_index1 = [list(edge) for edge in G1.edges()]
 edge_index2 = [list(edge) for edge in G2.edges()]
@@ -93,7 +93,7 @@ texts1 = [" ".join(attr) for attr in a1]
 texts2 = [" ".join(attr) for attr in a2]
 
 # 使用 sklearn 的 CountVectorizer 来构建词袋
-vectorizer = CountVectorizer(max_features=100)
+vectorizer = CountVectorizer(max_features=10000)
 vectorizer.fit(texts1 + texts2)
 
 # 转换文本数据为稀疏矩阵
@@ -111,9 +111,6 @@ x2 = np.array(Y_array)
 # 删除临时数组以释放内存
 del X_array, Y_array
 
-x1 = x1.astype(np.float32)
-x2 = x2.astype(np.float32)
-
 
 with open(r'C:/Users/Ken/Desktop/data/dblp_2/anchors.txt', 'r') as f:
     anchor = f.read()
@@ -129,8 +126,9 @@ test_pairs = anchor_links[test_indices]
 
 
 anchor_nodes1, anchor_nodes2 = anchor_links[:, 0], anchor_links[:, 1]
-anchor_links2 = anchor_nodes2
+print(anchor_nodes1)
 print(anchor_nodes2)
+anchor_links2 = anchor_nodes2
 n1, n2 = G1.number_of_nodes(), G2.number_of_nodes()
 for edge in G1.edges():
     G1[edge[0]][edge[1]]['weight'] = 1
@@ -146,6 +144,8 @@ if not os.path.isfile('dataset/node2vec_context_pairs_%s_%.1f.npz' % (args.datas
     walks2 = load_walks(G2, args.p, args.q, args.num_walks, args.walk_length)
     context_pairs1 = extract_pairs(walks1, anchor_nodes1)
     context_pairs2 = extract_pairs(walks2, anchor_nodes2)
+    print(context_pairs1)
+    print(context_pairs2)
     context_pairs1, context_pairs2 = balance_inputs(context_pairs1, context_pairs2)
     np.savez('dataset/node2vec_context_pairs_%s_%.1f.npz' % (args.dataset, args.ratio), context_pairs1=context_pairs1, context_pairs2=context_pairs2)
 else:
@@ -153,7 +153,6 @@ else:
     context_pairs1 = contexts['context_pairs1']
     context_pairs2 = contexts['context_pairs2']
 print('Finished positive context pair sampling in %.2f seconds' % (time.time() - t0))
-
 
 ################################################################################################
 # run random walk with restart or load from existing file for pre-positioning
@@ -244,14 +243,12 @@ for epoch in range(args.epochs):
         pos_context_nodes2 = nodes2[:, 1].reshape((-1,))
         # forward pass
         t0 = time.time()
-
         out_x = model(g, x, edge_types)
         t_model += (time.time() - t0)
 
         t0 = time.time()
         context_pos1_emb = out_x[node_mapping1[pos_context_nodes1]]
         context_pos2_emb = out_x[node_mapping2[pos_context_nodes2]]
-
 
         pn_examples1, _ = negative_sampling_exact(out_x, args.N_negs, anchor_nodes1, node_mapping1,
                                                           'p_n', 'g1')
