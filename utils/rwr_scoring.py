@@ -23,7 +23,7 @@ def rwr_scores(G1, G2, anchors):
             s2_list[k] = v
         score1.append(s1_list)
         score2.append(s2_list)
-        print(i)
+
 
     rwr_score1 = np.array(score1).T
     rwr_score2 = np.array(score2).T

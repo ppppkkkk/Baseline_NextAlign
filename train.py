@@ -1,5 +1,10 @@
+import ast
+import pickle
+
 import torch
 import dgl
+from sklearn.feature_extraction.text import CountVectorizer
+
 from utils.utils import *
 from utils.rwr_scoring import rwr_scores
 from utils.test import test
@@ -62,19 +67,68 @@ args.num_walks = 10
 args.use_attr = True
 args.gpu = 0
 args.dist = 'L1'
+args.dataset = "dblp_2"
+#edge_index1, edge_index2, x1, x2, anchor_links, test_pairs = load_data('dataset/' + args.dataset, args.ratio, args.use_attr)
+# G1, G2 = nx.Graph(), nx.Graph()
+# G1.add_edges_from(edge_index1)
+# G2.add_edges_from(edge_index2)
 
-edge_index1, edge_index2, x1, x2, anchor_links, test_pairs = load_data('dataset/' + args.dataset, args.ratio, args.use_attr)
-print(edge_index1)
-print(len(x1))
-print(anchor_links)
-print(test_pairs)
+
+G1, G2 = pickle.load(open(r'C:/Users/Ken/Desktop/data/dblp_2/networks', 'rb'))
+
+mapping = {node: node - 10000 for node in G2.nodes()}
+G2 = nx.relabel_nodes(G2, mapping)
+print(G2.nodes())
+
+edge_index1 = [list(edge) for edge in G1.edges()]
+edge_index2 = [list(edge) for edge in G2.edges()]
+
+attr = pickle.load(open(r'C:/Users/Ken/Desktop/data/dblp_2/attrs', 'rb'))
+# 分割属性
+a1 = attr[0:10000]
+a2 = attr[10000:]
+
+# 将每对属性连接成一个字符串
+texts1 = [" ".join(attr) for attr in a1]
+texts2 = [" ".join(attr) for attr in a2]
+
+# 使用 sklearn 的 CountVectorizer 来构建词袋
+vectorizer = CountVectorizer(max_features=10000)
+vectorizer.fit(texts1 + texts2)
+
+# 转换文本数据为稀疏矩阵
+X = vectorizer.transform(texts1)
+Y = vectorizer.transform(texts2)
+
+# 将稀疏矩阵转换为普通数组（NumPy 数组）
+X_array = X.toarray()
+Y_array = Y.toarray()
+
+# 确保attr1和attr2是NumPy数组
+x1 = np.array(X_array)
+x2 = np.array(Y_array)
+
+# 删除临时数组以释放内存
+del X_array, Y_array
+
+
+with open(r'C:/Users/Ken/Desktop/data/dblp_2/anchors.txt', 'r') as f:
+    anchor = f.read()
+
+anchor_links = ast.literal_eval(anchor)
+anchor_links = np.array(anchor_links)
+anchor_links[ :, 1] -= 10000
+
+test_size = 0.3
+num_test_samples = int(test_size * len(anchor_links))
+test_indices = np.random.choice(len(anchor_links), num_test_samples, replace=False)
+test_pairs = anchor_links[test_indices]
+
 
 anchor_nodes1, anchor_nodes2 = anchor_links[:, 0], anchor_links[:, 1]
+print(anchor_nodes1)
+print(anchor_nodes2)
 anchor_links2 = anchor_nodes2
-
-G1, G2 = nx.Graph(), nx.Graph()
-G1.add_edges_from(edge_index1)
-G2.add_edges_from(edge_index2)
 n1, n2 = G1.number_of_nodes(), G2.number_of_nodes()
 for edge in G1.edges():
     G1[edge[0]][edge[1]]['weight'] = 1
@@ -90,6 +144,8 @@ if not os.path.isfile('dataset/node2vec_context_pairs_%s_%.1f.npz' % (args.datas
     walks2 = load_walks(G2, args.p, args.q, args.num_walks, args.walk_length)
     context_pairs1 = extract_pairs(walks1, anchor_nodes1)
     context_pairs2 = extract_pairs(walks2, anchor_nodes2)
+    print(context_pairs1)
+    print(context_pairs2)
     context_pairs1, context_pairs2 = balance_inputs(context_pairs1, context_pairs2)
     np.savez('dataset/node2vec_context_pairs_%s_%.1f.npz' % (args.dataset, args.ratio), context_pairs1=context_pairs1, context_pairs2=context_pairs2)
 else:
@@ -170,7 +226,7 @@ pn_examples1, pn_examples2, pnc_examples1, pnc_examples2 = [], [], [], []
 t_neg_sampling, t_get_emb, t_loss, t_model = 0, 0, 0, 0
 total_loss = 0
 
-topk = [1, 10, 30, 50, 100]
+topk = [1, 5, 10, 50, 100]
 max_hits = np.zeros(len(topk), dtype=np.float32)
 max_hit_10, max_hit_30, max_epoch = 0, 0, 0
 
