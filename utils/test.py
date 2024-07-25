@@ -54,6 +54,14 @@ def test(model, topk, g, x, edge_types, node_mapping1, node_mapping2, test_set, 
 
         test_set = set(tuple(i) for i in test_set)
         hits_l = []
+
+        rr = []
+        for i in range(len(S)):
+            ranks = np.argsort(-S[i])
+            rank = np.where(ranks == test_nodes2[i])[0][0] + 1
+            rr.append(1 / rank)
+        mrr = round(np.mean(rr), 4)
+
         for k in topk:
             id2 = idx2[:, :k].reshape((-1, 1))
             idx1 = np.repeat(test_nodes1.reshape((-1, 1)), k, axis=1).reshape(-1, 1)
@@ -96,4 +104,4 @@ def test(model, topk, g, x, edge_types, node_mapping1, node_mapping2, test_set, 
         hits_r = np.array(hits_r)
         hits = np.maximum(hits_l, hits_r)
 
-    return hits
+    return hits, mrr

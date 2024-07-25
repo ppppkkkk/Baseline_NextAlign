@@ -242,8 +242,9 @@ pn_examples1, pn_examples2, pnc_examples1, pnc_examples2 = [], [], [], []
 t_neg_sampling, t_get_emb, t_loss, t_model = 0, 0, 0, 0
 total_loss = 0
 
-topk = [1, 5, 10, 50, 100]
-max_hits = np.zeros(len(topk), dtype=np.float32)
+# topk = [1, 10, 30, 50, 100]
+topk = [1, 5, 10, 30, 50]
+max_hits = np.zeros(len(topk)+1, dtype=np.float32)
 max_hit_10, max_hit_30, max_epoch = 0, 0, 0
 
 
@@ -320,15 +321,16 @@ for epoch in range(args.epochs):
     avg_t_loss = round(t_loss / ((epoch+1) * data_loader_size), 2)
     time_cost = [avg_t_model, avg_t_neg_sampling, avg_t_get_emb, avg_t_loss]
 
-    train_hits = test(model, topk, g, x, edge_types, node_mapping1, node_mapping2, anchor_links, anchor_links2, args.dist)
-    hits = test(model, topk, g, x, edge_types, node_mapping1, node_mapping2, test_pairs, anchor_links2, args.dist, 'testing')
+    train_hits, train_mrr = test(model, topk, g, x, edge_types, node_mapping1, node_mapping2, anchor_links, anchor_links2, args.dist)
+    hits, test_mrr = test(model, topk, g, x, edge_types, node_mapping1, node_mapping2, test_pairs, anchor_links2, args.dist, 'testing')
     print("Epoch:{}, Training loss:{}, Train_Hits:{},  Test_Hits:{}, Time:{}".format(
         epoch+1, round(total_loss.item(), 4), train_hits, hits, time_cost))
 
-    if hits[2] > max_hit_30 or (hits[2] == max_hit_30 and hits[1] > max_hits[1]):
-        max_hit_30 = hits[2]
-        max_hits = hits
+    if hits[3] > max_hit_30 or (hits[3] == max_hit_30 and hits[2] > max_hits[2]):
+        max_hit_30 = hits[3]
+        max_hits[:len(hits)] = hits
         max_epoch = epoch + 1
+        max_hits[-1] = test_mrr
 
     print("Max test hits:{} at epoch: {}".format(max_hits, max_epoch))
 
