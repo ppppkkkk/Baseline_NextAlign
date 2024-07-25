@@ -1,10 +1,11 @@
 import ast
 import pickle
 
+import numpy as np
 import torch
 import dgl
 from sklearn.feature_extraction.text import CountVectorizer
-
+from gensim.models import Word2Vec
 from utils.utils import *
 from utils.rwr_scoring import rwr_scores
 from utils.test import test
@@ -88,31 +89,45 @@ attr = pickle.load(open(r'C:/Users/Ken/Desktop/data/dblp_2/attrs', 'rb'))
 a1 = attr[0:10000]
 a2 = attr[10000:]
 
-# 将每对属性连接成一个字符串
-texts1 = [" ".join(attr) for attr in a1]
-texts2 = [" ".join(attr) for attr in a2]
+combined_data = a1 + a2
+model_word2vec = Word2Vec(sentences=combined_data, vector_size=100, window=5, min_count=1, workers=4)
 
-# 使用 sklearn 的 CountVectorizer 来构建词袋
-vectorizer = CountVectorizer(max_features=100)
-vectorizer.fit(texts1 + texts2)
+def get_average_vector(text, model):
+    word_vectors = [model.wv[word] for word in text if word in model.wv]
+    if not word_vectors:
+        return np.zeros(model.vector_size)
+    return np.mean(word_vectors, axis=0)
 
-# 转换文本数据为稀疏矩阵
-X = vectorizer.transform(texts1)
-Y = vectorizer.transform(texts2)
+X_array = np.array([get_average_vector(text, model_word2vec) for text in a1])
+Y_array = np.array([get_average_vector(text, model_word2vec) for text in a2])
 
-# 将稀疏矩阵转换为普通数组（NumPy 数组）
-X_array = X.toarray()
-Y_array = Y.toarray()
-
-# 确保attr1和attr2是NumPy数组
-x1 = np.array(X_array)
-x2 = np.array(Y_array)
-
-# 删除临时数组以释放内存
-del X_array, Y_array
-
-x1 = x1.astype(np.float32)
-x2 = x2.astype(np.float32)
+x1 = np.array(X_array, dtype=np.float32)
+x2 = np.array(Y_array, dtype=np.float32)
+# # 将每对属性连接成一个字符串
+# texts1 = [" ".join(attr) for attr in a1]
+# texts2 = [" ".join(attr) for attr in a2]
+#
+# # 使用 sklearn 的 CountVectorizer 来构建词袋
+# vectorizer = CountVectorizer(max_features=100)
+# vectorizer.fit(texts1 + texts2)
+#
+# # 转换文本数据为稀疏矩阵
+# X = vectorizer.transform(texts1)
+# Y = vectorizer.transform(texts2)
+#
+# # 将稀疏矩阵转换为普通数组（NumPy 数组）
+# X_array = X.toarray()
+# Y_array = Y.toarray()
+#
+# # 确保attr1和attr2是NumPy数组
+# x1 = np.array(X_array)
+# x2 = np.array(Y_array)
+#
+# # 删除临时数组以释放内存
+# del X_array, Y_array
+#
+# x1 = x1.astype(np.float32)
+# x2 = x2.astype(np.float32)
 
 
 with open(r'C:/Users/Ken/Desktop/data/dblp_2/anchors.txt', 'r') as f:
