@@ -55,10 +55,11 @@ args.seed = 123
 args.dim = 128
 args.num_layer = 1
 args.ratio = 0.2
+test_size = 0.2
 args.coeff1 = 1.0
 args.coeff2 = 1.0
 args.lr = 0.01
-args.epochs = 100
+args.epochs = 20
 args.batch_size = 300
 args.walks_num = 100
 args.N_steps = 10
@@ -70,27 +71,28 @@ args.num_walks = 10
 args.use_attr = True
 args.gpu = 0
 args.dist = 'L1'
-args.dataset = "dblp_2"
+args.dataset = "dblp_1"
 #edge_index1, edge_index2, x1, x2, anchor_links, test_pairs = load_data('dataset/' + args.dataset, args.ratio, args.use_attr)
 # G1, G2 = nx.Graph(), nx.Graph()
 # G1.add_edges_from(edge_index1)
 # G2.add_edges_from(edge_index2)
 
-G1, G2 = pickle.load(open(r'C:/Users/Ken/Desktop/data/dblp_2/networks', 'rb'))
+G1, G2 = pickle.load(open(r'C:/Users/11792/Desktop/data/dblp_1/networks', 'rb'))
 
-mapping = {node: node - 10000 for node in G2.nodes()}
+mapping = {node: node - 9086 for node in G2.nodes()}
 G2 = nx.relabel_nodes(G2, mapping)
 
 edge_index1 = [list(edge) for edge in G1.edges()]
 edge_index2 = [list(edge) for edge in G2.edges()]
-
-attr = pickle.load(open(r'C:/Users/Ken/Desktop/data/dblp_2/attrs', 'rb'))
-# 分割属性
-a1 = attr[0:10000]
-a2 = attr[10000:]
+print(edge_index2)
+# 加载数据
+attr = pickle.load(open(r'C:/Users/11792/Desktop/data/dblp_1/attrs', 'rb'))
+a1 = attr[0:9086]
+a2 = attr[9086:]
 
 combined_data = a1 + a2
 model_word2vec = Word2Vec(sentences=combined_data, vector_size=100, window=5, min_count=1, workers=4)
+
 
 def get_average_vector(text, model):
     word_vectors = [model.wv[word] for word in text if word in model.wv]
@@ -98,54 +100,39 @@ def get_average_vector(text, model):
         return np.zeros(model.vector_size)
     return np.mean(word_vectors, axis=0)
 
+
 X_array = np.array([get_average_vector(text, model_word2vec) for text in a1])
 Y_array = np.array([get_average_vector(text, model_word2vec) for text in a2])
 
 x1 = np.array(X_array, dtype=np.float32)
 x2 = np.array(Y_array, dtype=np.float32)
-# # 将每对属性连接成一个字符串
-# texts1 = [" ".join(attr) for attr in a1]
-# texts2 = [" ".join(attr) for attr in a2]
-#
-# # 使用 sklearn 的 CountVectorizer 来构建词袋
-# vectorizer = CountVectorizer(max_features=100)
-# vectorizer.fit(texts1 + texts2)
-#
-# # 转换文本数据为稀疏矩阵
-# X = vectorizer.transform(texts1)
-# Y = vectorizer.transform(texts2)
-#
-# # 将稀疏矩阵转换为普通数组（NumPy 数组）
-# X_array = X.toarray()
-# Y_array = Y.toarray()
-#
-# # 确保attr1和attr2是NumPy数组
-# x1 = np.array(X_array)
-# x2 = np.array(Y_array)
-#
-# # 删除临时数组以释放内存
-# del X_array, Y_array
-#
-# x1 = x1.astype(np.float32)
-# x2 = x2.astype(np.float32)
 
-
-with open(r'C:/Users/Ken/Desktop/data/dblp_2/anchors.txt', 'r') as f:
+with open(r'C:/Users/11792/Desktop/data/dblp_1/anchors.txt', 'r') as f:
     anchor = f.read()
 
 anchor_links = ast.literal_eval(anchor)
 anchor_links = np.array(anchor_links)
-anchor_links[ :, 1] -= 10000
+anchor_links[ :, 1] -= 9086
 
-test_size = 0.3
+
 num_test_samples = int(test_size * len(anchor_links))
 test_indices = np.random.choice(len(anchor_links), num_test_samples, replace=False)
 test_pairs = anchor_links[test_indices]
 
+mask = np.ones(len(anchor_links), dtype=bool)
+mask[test_indices] = False
+
+# 根据掩码计算训练集
+anchor_links = anchor_links[mask]
+
+# 如果需要可以将训练集和测试集保存到文件或进一步处理
+print(f"训练集样本数: {len(anchor_links)}")
+print(f"测试集样本数: {len(test_pairs)}")
 
 anchor_nodes1, anchor_nodes2 = anchor_links[:, 0], anchor_links[:, 1]
 anchor_links2 = anchor_nodes2
-print(anchor_nodes2)
+print(len(anchor_nodes1))
+print(len(anchor_nodes2))
 n1, n2 = G1.number_of_nodes(), G2.number_of_nodes()
 for edge in G1.edges():
     G1[edge[0]][edge[1]]['weight'] = 1
@@ -186,6 +173,7 @@ position_score1, position_score2 = anchor_emb(G1, G2, anchor_links)
 for node in G1.nodes:
     if node not in anchor_nodes1:
         position_score1[node] += rwr_score1[node]
+
 for node in G2.nodes:
     if node not in anchor_nodes2:
         position_score2[node] += rwr_score2[node]
@@ -199,7 +187,7 @@ t0 = time.time()
 node_mapping1 = np.arange(G1.number_of_nodes()).astype(np.int64)
 edge_index, edge_types, x, node_mapping2 = merge_graphs(edge_index1, edge_index2, x1, x2, anchor_links)
 print('Finished merging networks in %.2f seconds' % (time.time() - t0))
-
+print(node_mapping2)
 # input node features: (one-hot encoding, position, optional - node attributes)
 x1 = np.arange(len(x[0]), dtype=np.int64) if args.use_attr else np.arange(len(x), dtype=np.int64)
 x2 = x[0].astype(np.float32) if args.use_attr else x.astype(np.float32)
@@ -215,6 +203,9 @@ landmark = torch.from_numpy(anchor_nodes1).to(args.device)
 num_nodes = x[0].shape[0]
 num_attrs = x[2].shape[1] if args.use_attr else 0
 num_anchors = x[1].shape[1]
+
+
+
 
 model = Model(num_nodes, args.dim, landmark, args.dist, num_anchors=num_anchors, num_attrs=num_attrs)
 
@@ -250,7 +241,11 @@ max_hit_10, max_hit_30, max_epoch = 0, 0, 0
 
 for epoch in range(args.epochs):
     model.train()
+    iter = 0
     for i, data in enumerate(data_loader):
+        iter += 1
+        if(iter % 3 ==0 ):
+            continue
         nodes1, nodes2 = data
         nodes1 = nodes1.to(args.device)
         nodes2 = nodes2.to(args.device)
@@ -324,7 +319,7 @@ for epoch in range(args.epochs):
     train_hits, train_mrr = test(model, topk, g, x, edge_types, node_mapping1, node_mapping2, anchor_links, anchor_links2, args.dist)
     hits, test_mrr = test(model, topk, g, x, edge_types, node_mapping1, node_mapping2, test_pairs, anchor_links2, args.dist, 'testing')
     print("Epoch:{}, Training loss:{}, Train_Hits:{},  Test_Hits:{}, Time:{}".format(
-        epoch+1, round(total_loss.item(), 4), train_hits, hits, time_cost))
+        epoch+1, round(total_loss, 4), train_hits, hits, time_cost))
 
     if hits[3] > max_hit_30 or (hits[3] == max_hit_30 and hits[2] > max_hits[2]):
         max_hit_30 = hits[3]
@@ -335,10 +330,10 @@ for epoch in range(args.epochs):
     print("Max test hits:{} at epoch: {}".format(max_hits, max_epoch))
 
 if args.use_attr:
-    with open('results/results_%s_attr_%.1f.txt' % (args.dataset, args.ratio), 'a+') as f:
+    with open('results/results_%s_attr_%.1f.txt' % (args.dataset, args.ratio), 'w') as f:
         f.write(', '.join([str(x) for x in max_hits]) + '\n')
 else:
-    with open('results/results_%s_%.1f.txt' % (args.dataset, args.ratio), 'a+') as f:
+    with open('results/results_%s_%.1f.txt' % (args.dataset, args.ratio), 'w') as f:
         f.write(', '.join([str(x) for x in max_hits]) + '\n')
 
 
