@@ -319,7 +319,7 @@ for epoch in range(args.epochs):
     train_hits, train_mrr = test(model, topk, g, x, edge_types, node_mapping1, node_mapping2, anchor_links, anchor_links2, args.dist)
     hits, test_mrr = test(model, topk, g, x, edge_types, node_mapping1, node_mapping2, test_pairs, anchor_links2, args.dist, 'testing')
     print("Epoch:{}, Training loss:{}, Train_Hits:{},  Test_Hits:{}, Time:{}".format(
-        epoch+1, round(total_loss, 4), train_hits, hits, time_cost))
+        epoch+1, round(total_loss.item(), 4), train_hits, hits, time_cost))
 
     if hits[3] > max_hit_30 or (hits[3] == max_hit_30 and hits[2] > max_hits[2]):
         max_hit_30 = hits[3]
